@@ -24,6 +24,11 @@ El objetivo es demostrar un flujo reproducible de trabajo entre geología, base 
 
 Vista resumida del flujo desarrollado en Excel, QA/QC, preparación analítica y AutoCAD:
 
+
+Uploading ALPACAY_Mining4_Parte2_4x_GitHub.mp4…
+
+
+
 https://github.com/user-attachments/assets/3fa1c52f-a277-4355-a7e9-50d4a3052282
 
 ## Evidencias visuales
