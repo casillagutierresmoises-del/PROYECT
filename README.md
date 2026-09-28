@@ -1,6 +1,4 @@
 
-https://github.com/user-attachments/assets/99f1c7e6-8729-4acc-9855-0362fcb17af6
-
 # PROYECT
 None
 ## 🎥 Demostración del proyecto
