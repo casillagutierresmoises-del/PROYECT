@@ -1,0 +1,73 @@
+{
+  "name": "ALPACAY Mineria 4.0",
+  "dataColors": [
+    "#2FBF71",
+    "#F2C14E",
+    "#27A7D8",
+    "#F28C28",
+    "#D1495B",
+    "#8E6CFF",
+    "#9AA4AE"
+  ],
+  "background": "#0E1515",
+  "foreground": "#EAF2EF",
+  "tableAccent": "#2FBF71",
+  "textClasses": {
+    "callout": {
+      "fontFace": "Segoe UI Semibold",
+      "color": "#F6FAF8",
+      "fontSize": 30
+    },
+    "title": {
+      "fontFace": "Segoe UI Semibold",
+      "color": "#F6FAF8",
+      "fontSize": 14
+    },
+    "header": {
+      "fontFace": "Segoe UI",
+      "color": "#AAB8B2",
+      "fontSize": 11
+    },
+    "label": {
+      "fontFace": "Segoe UI",
+      "color": "#D8E2DE",
+      "fontSize": 10
+    }
+  },
+  "visualStyles": {
+    "*": {
+      "*": {
+        "background": [
+          {
+            "color": {
+              "solid": {
+                "color": "#15201F"
+              }
+            },
+            "transparency": 0
+          }
+        ],
+        "border": [
+          {
+            "color": {
+              "solid": {
+                "color": "#273533"
+              }
+            },
+            "radius": 8
+          }
+        ],
+        "title": [
+          {
+            "fontColor": {
+              "solid": {
+                "color": "#F6FAF8"
+              }
+            },
+            "fontSize": 13
+          }
+        ]
+      }
+    }
+  }
+}

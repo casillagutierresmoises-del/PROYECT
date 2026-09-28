@@ -1,0 +1,153 @@
+Análisis Espacial ML HTML =
+VAR tPuntos =
+    FILTER(
+        'muestras',
+        'muestras'[estado_coordenadas] = "OK"
+            && 'muestras'[incluir_ml] = TRUE()
+            && NOT ISBLANK('muestras'[este])
+            && NOT ISBLANK('muestras'[norte])
+    )
+VAR nPuntos = COUNTROWS(tPuntos)
+VAR nTotalXYZ =
+    CALCULATE(
+        COUNTROWS('muestras'),
+        'muestras'[estado_coordenadas] = "OK"
+    )
+VAR nEsteMin = MINX(tPuntos, 'muestras'[este])
+VAR nEsteMax = MAXX(tPuntos, 'muestras'[este])
+VAR nNorteMin = MINX(tPuntos, 'muestras'[norte])
+VAR nNorteMax = MAXX(tPuntos, 'muestras'[norte])
+VAR nCotaMin = MINX(tPuntos, 'muestras'[cota])
+VAR nCotaMax = MAXX(tPuntos, 'muestras'[cota])
+VAR nAuPromedio = AVERAGEX(tPuntos, 'muestras'[au_gr_tm])
+VAR nPotPromedio = AVERAGEX(tPuntos, 'muestras'[potencia_m])
+VAR nSpanEste = nEsteMax - nEsteMin
+VAR nSpanNorte = nNorteMax - nNorteMin
+VAR sVeta = SELECTEDVALUE('muestras'[veta], "Todas las vetas")
+VAR sLabor = SELECTEDVALUE('muestras'[labor], "Todas las labores")
+VAR sNivel = SELECTEDVALUE('muestras'[nivel], "Todos los niveles")
+
+VAR tMapa =
+    TOPN(
+        400,
+        tPuntos,
+        'muestras'[codigo], ASC
+    )
+VAR hPuntos =
+    CONCATENATEX(
+        tMapa,
+        VAR xEste = 'muestras'[este]
+        VAR xNorte = 'muestras'[norte]
+        VAR xAu = COALESCE('muestras'[au_gr_tm], 0)
+        VAR xPot = COALESCE('muestras'[potencia_m], 0)
+        VAR xPos = 4 + 92 * DIVIDE(xEste - nEsteMin, nSpanEste, 0.5)
+        VAR yPos = 96 - 92 * DIVIDE(xNorte - nNorteMin, nSpanNorte, 0.5)
+        VAR xPosCSS = SUBSTITUTE(FORMAT(xPos, "0.0"), ",", ".")
+        VAR yPosCSS = SUBSTITUTE(FORMAT(yPos, "0.0"), ",", ".")
+        VAR xRadio = MIN(11, 4 + SQRT(MAX(0, xAu)))
+        VAR xRadioCSS = SUBSTITUTE(FORMAT(xRadio, "0.0"), ",", ".")
+        VAR xColor =
+            SWITCH(
+                TRUE(),
+                xAu >= 30, "#dc5f45",
+                xAu >= 10, "#f59e0b",
+                xAu >= 5, "#d4a72c",
+                xAu >= 1, "#2a9d8f",
+                "#64748b"
+            )
+        VAR xInfo =
+            'muestras'[codigo] & " | " &
+            COALESCE('muestras'[labor], "Sin labor") & " | Au " &
+            FORMAT(xAu, "0.00") & " g/t | Pot. " & FORMAT(xPot, "0.00") & " m"
+        RETURN
+            "<div title='" & xInfo & "' style='position:absolute;left:" & xPosCSS & "%;top:" & yPosCSS & "%;width:" & xRadioCSS & "px;height:" & xRadioCSS & "px;border-radius:50%;background:" & xColor & ";border:1px solid rgba(255,255,255,.7);box-shadow:0 0 5px rgba(0,0,0,.45);transform:translate(-50%,-50%);'></div>",
+        ""
+    )
+VAR hMapa =
+    IF(
+        nPuntos = 0,
+        "<div style='height:330px;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:12px;'>No existen candidatos ML con coordenadas para el filtro seleccionado</div>",
+        "<div style='position:relative;height:330px;border-radius:11px;overflow:hidden;background-color:#0b1423;background-image:linear-gradient(rgba(94,120,148,.16) 1px,transparent 1px),linear-gradient(90deg,rgba(94,120,148,.16) 1px,transparent 1px);background-size:10% 20%;border:1px solid rgba(255,255,255,.08);'>" &
+            "<div style='position:absolute;left:8px;top:8px;font-size:8px;color:#64748b;'>N ↑</div>" &
+            "<div style='position:absolute;left:8px;bottom:7px;font-size:8px;color:#64748b;'>E " & FORMAT(nEsteMin, "#,0") & "</div>" &
+            "<div style='position:absolute;right:8px;bottom:7px;font-size:8px;color:#64748b;'>" & FORMAT(nEsteMax, "#,0") & " →</div>" &
+            "<div style='position:absolute;right:8px;top:8px;font-size:8px;color:#64748b;'>N " & FORMAT(nNorteMax, "#,0") & "</div>" &
+            hPuntos &
+        "</div>"
+    )
+
+VAR tTop =
+    TOPN(
+        7,
+        FILTER(tPuntos, NOT ISBLANK('muestras'[au_gr_tm])),
+        'muestras'[au_gr_tm], DESC,
+        'muestras'[codigo], ASC
+    )
+VAR hTop =
+    CONCATENATEX(
+        tTop,
+        VAR xAu = 'muestras'[au_gr_tm]
+        VAR xPot = 'muestras'[potencia_m]
+        VAR xFactor = xAu * xPot
+        VAR xColor = IF(xAu >= 30, "#e76f51", IF(xAu >= 10, "#f59e0b", "#d4a72c"))
+        RETURN
+            "<div style='display:grid;grid-template-columns:1.05fr .9fr .55fr;gap:7px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.065);'>" &
+                "<div><div style='font-size:10px;font-weight:700;color:#e2e8f0;'>" & 'muestras'[codigo] & "</div><div style='font-size:8px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>" & COALESCE('muestras'[labor], "Sin labor") & "</div></div>" &
+                "<div style='text-align:right;font-size:11px;font-weight:800;color:" & xColor & ";'>" & FORMAT(xAu, "0.00") & " <span style='font-size:8px;'>g/t</span><div style='font-size:8px;font-weight:400;color:#64748b;'>Pot. " & FORMAT(xPot, "0.00") & " m</div></div>" &
+                "<div style='text-align:right;font-size:9px;color:#94a3b8;'>" & FORMAT(xFactor, "0.00") & "<div style='font-size:7px;color:#526174;'>Au×m</div></div>" &
+            "</div>",
+        "",
+        'muestras'[au_gr_tm], DESC
+    )
+VAR hTopFinal =
+    IF(
+        COUNTROWS(tTop) = 0,
+        "<div style='padding:90px 0;text-align:center;color:#64748b;font-size:11px;'>Sin candidatos para mostrar</div>",
+        hTop
+    )
+
+VAR nMenor1 = COUNTROWS(FILTER(tPuntos, 'muestras'[au_gr_tm] < 1))
+VAR n1a5 = COUNTROWS(FILTER(tPuntos, 'muestras'[au_gr_tm] >= 1 && 'muestras'[au_gr_tm] < 5))
+VAR n5a10 = COUNTROWS(FILTER(tPuntos, 'muestras'[au_gr_tm] >= 5 && 'muestras'[au_gr_tm] < 10))
+VAR n10a30 = COUNTROWS(FILTER(tPuntos, 'muestras'[au_gr_tm] >= 10 && 'muestras'[au_gr_tm] < 30))
+VAR nMayor30 = COUNTROWS(FILTER(tPuntos, 'muestras'[au_gr_tm] >= 30))
+VAR nMaxRango = MAX(nMenor1, MAX(n1a5, MAX(n5a10, MAX(n10a30, nMayor30))))
+VAR hRangos =
+    "<div style='display:flex;align-items:flex-end;gap:13px;height:105px;padding:0 8px;border-bottom:1px solid #334155;'>" &
+        "<div style='flex:1;text-align:center;'><div style='font-size:9px;color:#cbd5e1;'>" & FORMAT(nMenor1, "#,0") & "</div><div style='height:" & FORMAT(12 + 64 * DIVIDE(nMenor1,nMaxRango,0), "0") & "px;background:#64748b;border-radius:5px 5px 1px 1px;'></div><div style='font-size:8px;color:#64748b;margin-top:4px;'>&lt;1</div></div>" &
+        "<div style='flex:1;text-align:center;'><div style='font-size:9px;color:#cbd5e1;'>" & FORMAT(n1a5, "#,0") & "</div><div style='height:" & FORMAT(12 + 64 * DIVIDE(n1a5,nMaxRango,0), "0") & "px;background:#2a9d8f;border-radius:5px 5px 1px 1px;'></div><div style='font-size:8px;color:#64748b;margin-top:4px;'>1–5</div></div>" &
+        "<div style='flex:1;text-align:center;'><div style='font-size:9px;color:#cbd5e1;'>" & FORMAT(n5a10, "#,0") & "</div><div style='height:" & FORMAT(12 + 64 * DIVIDE(n5a10,nMaxRango,0), "0") & "px;background:#d4a72c;border-radius:5px 5px 1px 1px;'></div><div style='font-size:8px;color:#64748b;margin-top:4px;'>5–10</div></div>" &
+        "<div style='flex:1;text-align:center;'><div style='font-size:9px;color:#cbd5e1;'>" & FORMAT(n10a30, "#,0") & "</div><div style='height:" & FORMAT(12 + 64 * DIVIDE(n10a30,nMaxRango,0), "0") & "px;background:#f59e0b;border-radius:5px 5px 1px 1px;'></div><div style='font-size:8px;color:#64748b;margin-top:4px;'>10–30</div></div>" &
+        "<div style='flex:1;text-align:center;'><div style='font-size:9px;color:#cbd5e1;'>" & FORMAT(nMayor30, "#,0") & "</div><div style='height:" & FORMAT(12 + 64 * DIVIDE(nMayor30,nMaxRango,0), "0") & "px;background:#e76f51;border-radius:5px 5px 1px 1px;'></div><div style='font-size:8px;color:#64748b;margin-top:4px;'>≥30</div></div>" &
+    "</div>"
+
+RETURN
+    "<div style='box-sizing:border-box;width:100%;min-height:760px;padding:22px;border-radius:18px;background:linear-gradient(145deg,#0b1220 0%,#111c2e 54%,#172a40 100%);font-family:Segoe UI,Arial,sans-serif;color:#f8fafc;overflow:hidden;'>" &
+        "<div style='display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid rgba(255,255,255,.12);padding-bottom:13px;'>" &
+            "<div><div style='font-size:10px;font-weight:800;letter-spacing:2.2px;color:#d4a72c;'>MINERÍA 4.0 · ANÁLISIS ESPACIAL Y ML</div><div style='font-size:24px;font-weight:760;margin-top:4px;'>ALPACAY</div><div style='font-size:11px;color:#9fb0c5;margin-top:4px;'>Control XY de muestras elegibles y priorización descriptiva</div></div>" &
+            "<div style='text-align:right;'><div style='display:inline-block;padding:6px 11px;border-radius:999px;background:rgba(231,111,81,.14);border:1px solid rgba(231,111,81,.62);color:#ffab98;font-size:9px;font-weight:800;'>USO INTERNO · COORDENADAS SENSIBLES</div><div style='font-size:9px;color:#64748b;margin-top:7px;'>" & sVeta & " · " & sLabor & " · " & sNivel & "</div></div>" &
+        "</div>" &
+
+        "<div style='display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:13px;'>" &
+            "<div style='padding:12px 14px;border-radius:11px;background:rgba(42,157,143,.09);border:1px solid rgba(42,157,143,.3);'><div style='font-size:8px;color:#86e3d5;'>CANDIDATOS ML CON XYZ</div><div style='font-size:23px;font-weight:780;margin-top:3px;'>" & FORMAT(nPuntos,"#,0") & "</div><div style='font-size:8px;color:#648f8b;'>de " & FORMAT(nTotalXYZ,"#,0") & " muestras XYZ</div></div>" &
+            "<div style='padding:12px 14px;border-radius:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);'><div style='font-size:8px;color:#94a3b8;'>EXTENSIÓN ESTE</div><div style='font-size:23px;font-weight:780;margin-top:3px;'>" & FORMAT(nSpanEste,"#,0") & " <span style='font-size:9px;color:#64748b;'>m</span></div><div style='font-size:8px;color:#64748b;'>E " & FORMAT(nEsteMin,"#,0") & " – " & FORMAT(nEsteMax,"#,0") & "</div></div>" &
+            "<div style='padding:12px 14px;border-radius:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);'><div style='font-size:8px;color:#94a3b8;'>EXTENSIÓN NORTE</div><div style='font-size:23px;font-weight:780;margin-top:3px;'>" & FORMAT(nSpanNorte,"#,0") & " <span style='font-size:9px;color:#64748b;'>m</span></div><div style='font-size:8px;color:#64748b;'>N " & FORMAT(nNorteMin,"#,0") & " – " & FORMAT(nNorteMax,"#,0") & "</div></div>" &
+            "<div style='padding:12px 14px;border-radius:11px;background:rgba(212,167,44,.1);border:1px solid rgba(212,167,44,.35);'><div style='font-size:8px;color:#e8cd75;'>LEY MEDIA CANDIDATOS</div><div style='font-size:23px;font-weight:780;margin-top:3px;color:#f5d76e;'>" & FORMAT(nAuPromedio,"0.00") & " <span style='font-size:9px;'>g/t</span></div><div style='font-size:8px;color:#b89f55;'>Potencia media " & FORMAT(nPotPromedio,"0.00") & " m</div></div>" &
+        "</div>" &
+
+        "<div style='display:grid;grid-template-columns:2fr .86fr;gap:10px;margin-top:10px;'>" &
+            "<div style='padding:13px;border-radius:12px;background:rgba(8,15,28,.58);border:1px solid rgba(255,255,255,.08);'><div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;'><div><div style='font-size:12px;font-weight:750;'>Plano XY de candidatos ML</div><div style='font-size:8px;color:#64748b;margin-top:2px;'>Posición relativa según Este y Norte · máximo 400 puntos</div></div><div style='display:flex;gap:8px;font-size:8px;color:#94a3b8;'><span><b style='color:#64748b;'>●</b> &lt;1</span><span><b style='color:#2a9d8f;'>●</b> 1–5</span><span><b style='color:#d4a72c;'>●</b> 5–10</span><span><b style='color:#f59e0b;'>●</b> 10–30</span><span><b style='color:#e76f51;'>●</b> ≥30</span></div></div>" & hMapa & "</div>" &
+            "<div style='padding:13px;border-radius:12px;background:rgba(8,15,28,.58);border:1px solid rgba(255,255,255,.08);'><div style='font-size:12px;font-weight:750;'>Prioridad descriptiva</div><div style='font-size:8px;color:#64748b;margin-top:2px;'>Mayores leyes entre candidatos elegibles</div><div style='margin-top:7px;'>" & hTopFinal & "</div></div>" &
+        "</div>" &
+
+        "<div style='display:grid;grid-template-columns:1.2fr .8fr;gap:10px;margin-top:10px;'>" &
+            "<div style='padding:12px 14px;border-radius:11px;background:rgba(8,15,28,.58);border:1px solid rgba(255,255,255,.08);'><div style='font-size:11px;font-weight:750;'>Distribución de Au en candidatos ML</div><div style='font-size:8px;color:#64748b;margin-top:2px;'>Rangos descriptivos en g/t</div>" & hRangos & "</div>" &
+            "<div style='display:grid;grid-template-columns:1fr 1fr;gap:9px;'>" &
+                "<div style='padding:13px;border-radius:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);'><div style='font-size:8px;color:#94a3b8;'>COTA MÍNIMA</div><div style='font-size:19px;font-weight:760;margin-top:4px;'>" & FORMAT(nCotaMin,"#,0.0") & " <span style='font-size:8px;color:#64748b;'>m</span></div></div>" &
+                "<div style='padding:13px;border-radius:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);'><div style='font-size:8px;color:#94a3b8;'>COTA MÁXIMA</div><div style='font-size:19px;font-weight:760;margin-top:4px;'>" & FORMAT(nCotaMax,"#,0.0") & " <span style='font-size:8px;color:#64748b;'>m</span></div></div>" &
+                "<div style='grid-column:1 / 3;padding:11px 13px;border-radius:11px;background:rgba(42,157,143,.075);border:1px solid rgba(42,157,143,.22);font-size:9px;line-height:1.45;color:#a7c9c4;'><b style='color:#86e3d5;'>Uso técnico:</b> la selección apoya la revisión geológica y el intercambio con AutoCAD, Leapfrog y Deswik. No representa una estimación de recursos ni una decisión económica.</div>" &
+            "</div>" &
+        "</div>" &
+
+        "<div style='display:flex;justify-content:space-between;margin-top:10px;font-size:8px;color:#64748b;'><span>Fuente: PostgreSQL · Candidatos con XYZ, Au y potencia válidos</span><span>No publicar coordenadas reales en GitHub ni en el portafolio público</span></div>" &
+    "</div>"

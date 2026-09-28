@@ -1,0 +1,102 @@
+HTML Resumen Ejecutivo =
+VAR nTotal =
+    COUNTROWS('muestras')
+VAR nXYZ =
+    CALCULATE(
+        COUNTROWS('muestras'),
+        'muestras'[estado_coordenadas] = "OK"
+    )
+VAR nML =
+    CALCULATE(
+        COUNTROWS('muestras'),
+        'muestras'[incluir_ml] = TRUE()
+    )
+VAR nQAQC =
+    CALCULATE(
+        COUNTROWS('muestras'),
+        'muestras'[es_qaqc] = TRUE()
+    )
+VAR nPromedio =
+    CALCULATE(
+        AVERAGE('muestras'[au_gr_tm]),
+        'muestras'[es_qaqc] = FALSE(),
+        'muestras'[estado_au] = "OK"
+    )
+VAR nMediana =
+    CALCULATE(
+        MEDIAN('muestras'[au_gr_tm]),
+        'muestras'[es_qaqc] = FALSE(),
+        'muestras'[estado_au] = "OK"
+    )
+VAR nPotencia =
+    CALCULATE(
+        AVERAGE('muestras'[potencia_m]),
+        'muestras'[es_qaqc] = FALSE(),
+        'muestras'[potencia_m] > 0
+    )
+VAR dFecha =
+    MAX('muestras'[fecha])
+VAR vTotal = FORMAT(nTotal, "#,0")
+VAR vXYZ = FORMAT(nXYZ, "#,0")
+VAR vML = FORMAT(nML, "#,0")
+VAR vQAQC = FORMAT(nQAQC, "#,0")
+VAR vCobertura = FORMAT(DIVIDE(nXYZ, nTotal, 0), "0.0%")
+VAR vTasaML = FORMAT(DIVIDE(nML, nTotal, 0), "0.0%")
+VAR vPromedio = FORMAT(nPromedio, "0.00")
+VAR vMediana = FORMAT(nMediana, "0.00")
+VAR vPotencia = FORMAT(nPotencia, "0.00")
+VAR vFecha = FORMAT(dFecha, "dd/MM/yyyy")
+RETURN
+    "<div style='box-sizing:border-box;width:100%;min-height:430px;padding:24px;border-radius:18px;background:linear-gradient(135deg,#111827 0%,#172033 58%,#20334d 100%);font-family:Segoe UI,Arial,sans-serif;color:#f8fafc;'>" &
+        "<div style='display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid rgba(255,255,255,.14);padding-bottom:16px;'>" &
+            "<div>" &
+                "<div style='font-size:11px;font-weight:700;letter-spacing:2.2px;color:#d4a72c;'>MINERÍA 4.0</div>" &
+                "<div style='font-size:27px;font-weight:750;line-height:1.15;margin-top:5px;'>ALPACAY</div>" &
+                "<div style='font-size:13px;color:#b8c3d4;margin-top:6px;'>Control de muestreo, QA/QC y leyes de Au</div>" &
+            "</div>" &
+            "<div style='text-align:right;'>" &
+                "<div style='display:inline-block;padding:7px 12px;border-radius:999px;background:rgba(42,157,143,.18);border:1px solid rgba(42,157,143,.65);color:#86e3d5;font-size:11px;font-weight:700;'>BASE VALIDADA</div>" &
+                "<div style='font-size:11px;color:#94a3b8;margin-top:9px;'>Último muestreo: " & vFecha & "</div>" &
+            "</div>" &
+        "</div>" &
+        "<div style='display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:18px;'>" &
+            "<div style='padding:16px;border-radius:13px;background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.10);'>" &
+                "<div style='font-size:11px;color:#aeb9c9;'>TOTAL REGISTROS</div>" &
+                "<div style='font-size:28px;font-weight:750;margin-top:5px;'>" & vTotal & "</div>" &
+                "<div style='height:3px;background:#d4a72c;border-radius:5px;margin-top:11px;width:48px;'></div>" &
+            "</div>" &
+            "<div style='padding:16px;border-radius:13px;background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.10);'>" &
+                "<div style='font-size:11px;color:#aeb9c9;'>MUESTRAS CON XYZ</div>" &
+                "<div style='font-size:28px;font-weight:750;margin-top:5px;'>" & vXYZ & "</div>" &
+                "<div style='font-size:11px;color:#86e3d5;margin-top:7px;'>Cobertura " & vCobertura & "</div>" &
+            "</div>" &
+            "<div style='padding:16px;border-radius:13px;background:rgba(212,167,44,.13);border:1px solid rgba(212,167,44,.42);'>" &
+                "<div style='font-size:11px;color:#dbc16c;'>CANDIDATOS ML</div>" &
+                "<div style='font-size:28px;font-weight:750;margin-top:5px;color:#f5d76e;'>" & vML & "</div>" &
+                "<div style='font-size:11px;color:#dbc16c;margin-top:7px;'>Elegibilidad " & vTasaML & "</div>" &
+            "</div>" &
+            "<div style='padding:16px;border-radius:13px;background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.10);'>" &
+                "<div style='font-size:11px;color:#aeb9c9;'>REGISTROS QA/QC</div>" &
+                "<div style='font-size:28px;font-weight:750;margin-top:5px;'>" & vQAQC & "</div>" &
+                "<div style='font-size:11px;color:#94a3b8;margin-top:7px;'>Separados del entrenamiento</div>" &
+            "</div>" &
+        "</div>" &
+        "<div style='display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:12px;'>" &
+            "<div style='padding:15px 17px;border-radius:13px;background:#f8fafc;color:#172033;'>" &
+                "<div style='font-size:11px;font-weight:700;color:#64748b;'>LEY PROMEDIO Au</div>" &
+                "<div style='font-size:24px;font-weight:760;margin-top:4px;'>" & vPromedio & " <span style='font-size:12px;font-weight:600;color:#64748b;'>g/t</span></div>" &
+            "</div>" &
+            "<div style='padding:15px 17px;border-radius:13px;background:#f8fafc;color:#172033;'>" &
+                "<div style='font-size:11px;font-weight:700;color:#64748b;'>LEY MEDIANA Au</div>" &
+                "<div style='font-size:24px;font-weight:760;margin-top:4px;'>" & vMediana & " <span style='font-size:12px;font-weight:600;color:#64748b;'>g/t</span></div>" &
+            "</div>" &
+            "<div style='padding:15px 17px;border-radius:13px;background:#f8fafc;color:#172033;'>" &
+                "<div style='font-size:11px;font-weight:700;color:#64748b;'>POTENCIA PROMEDIO</div>" &
+                "<div style='font-size:24px;font-weight:760;margin-top:4px;'>" & vPotencia & " <span style='font-size:12px;font-weight:600;color:#64748b;'>m</span></div>" &
+            "</div>" &
+        "</div>" &
+        "<div style='display:flex;justify-content:space-between;align-items:center;margin-top:16px;font-size:10px;color:#8492a6;'>" &
+            "<span>Fuente: PostgreSQL · Unidad analítica ALPACAY</span>" &
+            "<span>Indicadores descriptivos · No constituyen recursos ni reservas</span>" &
+        "</div>" &
+    "</div>"

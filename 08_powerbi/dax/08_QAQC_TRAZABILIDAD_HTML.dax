@@ -1,0 +1,126 @@
+QAQC Trazabilidad HTML =
+VAR nTotal = COUNTROWS('muestras')
+VAR nAuOK = CALCULATE(COUNTROWS('muestras'), 'muestras'[estado_au] = "OK")
+VAR nAuTraza = CALCULATE(COUNTROWS('muestras'), 'muestras'[estado_au] = "TRAZA")
+VAR nAuFalta = CALCULATE(COUNTROWS('muestras'), 'muestras'[estado_au] = "FALTA_AU")
+VAR nAuRevisar = CALCULATE(COUNTROWS('muestras'), 'muestras'[estado_au] = "REVISAR_AU")
+VAR nXYZ = CALCULATE(COUNTROWS('muestras'), 'muestras'[estado_coordenadas] = "OK")
+VAR nSinCoord = CALCULATE(COUNTROWS('muestras'), 'muestras'[estado_coordenadas] = "FALTA_COORD")
+VAR nCoordRevisar = CALCULATE(COUNTROWS('muestras'), 'muestras'[estado_coordenadas] = "PARCIAL_REVISAR")
+VAR nQAQC = CALCULATE(COUNTROWS('muestras'), 'muestras'[es_qaqc] = TRUE())
+VAR nDuplicados = CALCULATE(COUNTROWS('muestras'), 'muestras'[estado_codigo] = "DUPLICADO")
+VAR nPotFalta = CALCULATE(COUNTROWS('muestras'), 'muestras'[estado_potencia] = "FALTA_POT")
+VAR nPotRevisar = CALCULATE(COUNTROWS('muestras'), 'muestras'[estado_potencia] = "REVISAR_POT")
+VAR nNivelFalta = CALCULATE(COUNTROWS('muestras'), 'muestras'[estado_nivel] = "FALTA_NIVEL")
+VAR nNivelRevisar = CALCULATE(COUNTROWS('muestras'), 'muestras'[estado_nivel] = "REVISAR_NIVEL")
+VAR pAuOK = DIVIDE(nAuOK, nTotal, 0)
+VAR pXYZ = DIVIDE(nXYZ, nTotal, 0)
+VAR pQAQC = DIVIDE(nQAQC, nTotal, 0)
+VAR nAlertas = nAuRevisar + nCoordRevisar + nDuplicados + nPotRevisar + nNivelRevisar
+VAR sEstado = IF(nDuplicados = 0 && nAuRevisar = 0, "CONTROLADO", "REQUIERE REVISIÓN")
+VAR cEstado = IF(nDuplicados = 0 && nAuRevisar = 0, "#2a9d8f", "#e76f51")
+VAR dUltima = MAX('muestras'[fecha])
+
+VAR tTipos =
+    FILTER(
+        ADDCOLUMNS(
+            FILTER(VALUES('muestras'[tipo]), NOT ISBLANK('muestras'[tipo])),
+            "__Cantidad", CALCULATE(COUNTROWS('muestras'), 'muestras'[es_qaqc] = TRUE())
+        ),
+        [__Cantidad] > 0
+    )
+VAR nTipoMax = MAXX(tTipos, [__Cantidad])
+VAR hTipos =
+    CONCATENATEX(
+        TOPN(7, tTipos, [__Cantidad], DESC, 'muestras'[tipo], ASC),
+        VAR xN = [__Cantidad]
+        VAR xAncho = FORMAT(DIVIDE(xN, nTipoMax, 0), "0%")
+        RETURN
+            "<div style='display:grid;grid-template-columns:105px 1fr 35px;gap:8px;align-items:center;margin:9px 0;'>" &
+                "<div style='font-size:10px;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;' title='" & 'muestras'[tipo] & "'>" & LEFT('muestras'[tipo],18) & "</div>" &
+                "<div style='height:8px;background:#25344a;border-radius:6px;overflow:hidden;'><div style='height:100%;width:" & xAncho & ";background:#d4a72c;border-radius:6px;'></div></div>" &
+                "<div style='text-align:right;font-size:10px;font-weight:700;color:#f5d76e;'>" & FORMAT(xN,"#,0") & "</div>" &
+            "</div>",
+        "",
+        [__Cantidad], DESC
+    )
+VAR hTiposFinal = IF(COUNTROWS(tTipos)=0,"<div style='padding:70px 0;text-align:center;color:#64748b;font-size:11px;'>Sin registros QA/QC en el filtro actual</div>",hTipos)
+
+VAR tQAQC =
+    TOPN(
+        8,
+        FILTER('muestras', 'muestras'[es_qaqc] = TRUE()),
+        'muestras'[fecha], DESC,
+        'muestras'[codigo], ASC
+    )
+VAR hTabla =
+    CONCATENATEX(
+        tQAQC,
+        VAR xEstado = 'muestras'[estado_au]
+        VAR xColor = IF(xEstado="OK","#2a9d8f",IF(xEstado="TRAZA","#d4a72c","#e76f51"))
+        RETURN
+            "<div style='display:grid;grid-template-columns:1.05fr .85fr 1fr .62fr .65fr;gap:7px;align-items:center;padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.06);font-size:9px;'>" &
+                "<div style='font-weight:700;color:#e2e8f0;'>" & 'muestras'[codigo] & "</div>" &
+                "<div style='color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>" & COALESCE('muestras'[tipo],"-") & "</div>" &
+                "<div style='color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;'>" & COALESCE('muestras'[labor],"-") & "</div>" &
+                "<div style='text-align:right;color:#cbd5e1;'>" & IF(ISBLANK('muestras'[au_gr_tm]),"-",FORMAT('muestras'[au_gr_tm],"0.00")) & "</div>" &
+                "<div style='text-align:right;font-size:8px;font-weight:800;color:" & xColor & ";'>" & xEstado & "</div>" &
+            "</div>",
+        "",
+        'muestras'[fecha], DESC
+    )
+VAR hTablaFinal = IF(COUNTROWS(tQAQC)=0,"<div style='padding:75px 0;text-align:center;color:#64748b;font-size:11px;'>Sin registros QA/QC para mostrar</div>",hTabla)
+
+VAR hAu =
+    "<div style='margin-top:13px;'>" &
+        "<div style='display:flex;height:16px;border-radius:8px;overflow:hidden;background:#25344a;'>" &
+            "<div title='Au numérico: " & FORMAT(nAuOK,"#,0") & "' style='width:" & FORMAT(DIVIDE(nAuOK,nTotal,0),"0%") & ";background:#2a9d8f;'></div>" &
+            "<div title='Traza: " & FORMAT(nAuTraza,"#,0") & "' style='width:" & FORMAT(DIVIDE(nAuTraza,nTotal,0),"0%") & ";background:#d4a72c;'></div>" &
+            "<div title='Faltante: " & FORMAT(nAuFalta,"#,0") & "' style='width:" & FORMAT(DIVIDE(nAuFalta,nTotal,0),"0%") & ";background:#64748b;'></div>" &
+            "<div title='Revisar: " & FORMAT(nAuRevisar,"#,0") & "' style='width:" & FORMAT(DIVIDE(nAuRevisar,nTotal,0),"0%") & ";background:#e76f51;'></div>" &
+        "</div>" &
+        "<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px;'>" &
+            "<div><div style='font-size:8px;color:#2a9d8f;'>● NUMÉRICO</div><div style='font-size:18px;font-weight:760;'>" & FORMAT(nAuOK,"#,0") & "</div></div>" &
+            "<div><div style='font-size:8px;color:#d4a72c;'>● TRAZA</div><div style='font-size:18px;font-weight:760;'>" & FORMAT(nAuTraza,"#,0") & "</div></div>" &
+            "<div><div style='font-size:8px;color:#94a3b8;'>● FALTANTE</div><div style='font-size:18px;font-weight:760;'>" & FORMAT(nAuFalta,"#,0") & "</div></div>" &
+            "<div><div style='font-size:8px;color:#e76f51;'>● REVISAR</div><div style='font-size:18px;font-weight:760;'>" & FORMAT(nAuRevisar,"#,0") & "</div></div>" &
+        "</div>" &
+    "</div>"
+
+RETURN
+    "<div style='box-sizing:border-box;width:100%;min-height:760px;padding:22px;border-radius:18px;background:linear-gradient(145deg,#0b1220 0%,#111c2e 54%,#172a40 100%);font-family:Segoe UI,Arial,sans-serif;color:#f8fafc;overflow:hidden;'>" &
+        "<div style='display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid rgba(255,255,255,.12);padding-bottom:13px;'>" &
+            "<div><div style='font-size:10px;font-weight:800;letter-spacing:2.2px;color:#d4a72c;'>MINERÍA 4.0 · ASEGURAMIENTO Y CONTROL DE CALIDAD</div><div style='font-size:24px;font-weight:760;margin-top:4px;'>QA/QC Y TRAZABILIDAD</div><div style='font-size:11px;color:#9fb0c5;margin-top:4px;'>ALPACAY · Integridad de la base analítica</div></div>" &
+            "<div style='text-align:right;'><div style='display:inline-block;padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid " & cEstado & ";color:" & cEstado & ";font-size:9px;font-weight:800;'>" & sEstado & "</div><div style='font-size:9px;color:#64748b;margin-top:7px;'>Último registro: " & IF(ISBLANK(dUltima),"Sin fecha",FORMAT(dUltima,"dd/MM/yyyy")) & "</div></div>" &
+        "</div>" &
+
+        "<div style='display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin-top:13px;'>" &
+            "<div style='padding:12px;border-radius:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);'><div style='font-size:8px;color:#94a3b8;'>TOTAL REGISTROS</div><div style='font-size:22px;font-weight:780;margin-top:3px;'>" & FORMAT(nTotal,"#,0") & "</div></div>" &
+            "<div style='padding:12px;border-radius:11px;background:rgba(42,157,143,.09);border:1px solid rgba(42,157,143,.3);'><div style='font-size:8px;color:#86e3d5;'>Au NUMÉRICO</div><div style='font-size:22px;font-weight:780;margin-top:3px;'>" & FORMAT(pAuOK,"0.0%") & "</div><div style='font-size:8px;color:#648f8b;'>" & FORMAT(nAuOK,"#,0") & " registros</div></div>" &
+            "<div style='padding:12px;border-radius:11px;background:rgba(42,157,143,.09);border:1px solid rgba(42,157,143,.3);'><div style='font-size:8px;color:#86e3d5;'>COBERTURA XYZ</div><div style='font-size:22px;font-weight:780;margin-top:3px;'>" & FORMAT(pXYZ,"0.0%") & "</div><div style='font-size:8px;color:#648f8b;'>" & FORMAT(nXYZ,"#,0") & " muestras</div></div>" &
+            "<div style='padding:12px;border-radius:11px;background:rgba(212,167,44,.1);border:1px solid rgba(212,167,44,.35);'><div style='font-size:8px;color:#e8cd75;'>REGISTROS QA/QC</div><div style='font-size:22px;font-weight:780;margin-top:3px;color:#f5d76e;'>" & FORMAT(nQAQC,"#,0") & "</div><div style='font-size:8px;color:#b89f55;'>" & FORMAT(pQAQC,"0.0%") & " de la base</div></div>" &
+            "<div style='padding:12px;border-radius:11px;background:rgba(231,111,81,.1);border:1px solid rgba(231,111,81,.35);'><div style='font-size:8px;color:#ffab98;'>ALERTAS DE REVISIÓN</div><div style='font-size:22px;font-weight:780;margin-top:3px;color:#ff9b84;'>" & FORMAT(nAlertas,"#,0") & "</div><div style='font-size:8px;color:#b87869;'>controles acumulados</div></div>" &
+        "</div>" &
+
+        "<div style='display:grid;grid-template-columns:1.05fr .95fr;gap:10px;margin-top:10px;'>" &
+            "<div style='padding:14px;border-radius:12px;background:rgba(8,15,28,.58);border:1px solid rgba(255,255,255,.08);min-height:165px;'><div style='display:flex;justify-content:space-between;'><div><div style='font-size:12px;font-weight:750;'>Integridad analítica de Au</div><div style='font-size:8px;color:#64748b;margin-top:2px;'>Clasificación del resultado registrado</div></div><div style='font-size:10px;font-weight:800;color:#86e3d5;'>" & FORMAT(pAuOK,"0.0%") & " válido</div></div>" & hAu & "</div>" &
+            "<div style='padding:14px;border-radius:12px;background:rgba(8,15,28,.58);border:1px solid rgba(255,255,255,.08);min-height:165px;'><div style='font-size:12px;font-weight:750;'>Tipos de control QA/QC</div><div style='font-size:8px;color:#64748b;margin-top:2px;'>Frecuencia según tipo de muestra</div><div style='margin-top:7px;'>" & hTiposFinal & "</div></div>" &
+        "</div>" &
+
+        "<div style='display:grid;grid-template-columns:1.55fr .75fr;gap:10px;margin-top:10px;'>" &
+            "<div style='padding:13px;border-radius:12px;background:rgba(8,15,28,.58);border:1px solid rgba(255,255,255,.08);min-height:250px;'><div style='display:flex;justify-content:space-between;align-items:center;'><div><div style='font-size:12px;font-weight:750;'>Últimos registros QA/QC</div><div style='font-size:8px;color:#64748b;margin-top:2px;'>Vista de trazabilidad · máximo ocho registros</div></div><div style='font-size:8px;color:#64748b;'>Au en g/t</div></div><div style='display:grid;grid-template-columns:1.05fr .85fr 1fr .62fr .65fr;gap:7px;padding:9px 8px 5px;font-size:7px;color:#526174;'><span>CÓDIGO</span><span>TIPO</span><span>LABOR</span><span style='text-align:right;'>Au</span><span style='text-align:right;'>ESTADO</span></div>" & hTablaFinal & "</div>" &
+            "<div style='padding:13px;border-radius:12px;background:rgba(8,15,28,.58);border:1px solid rgba(255,255,255,.08);min-height:250px;'><div style='font-size:12px;font-weight:750;'>Observaciones de calidad</div><div style='font-size:8px;color:#64748b;margin-top:2px;'>Controles para depuración</div>" &
+                "<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px;'>" &
+                    "<div style='padding:10px;border-radius:9px;background:rgba(255,255,255,.045);'><div style='font-size:8px;color:#64748b;'>SIN COORD.</div><div style='font-size:18px;font-weight:760;margin-top:2px;'>" & FORMAT(nSinCoord,"#,0") & "</div></div>" &
+                    "<div style='padding:10px;border-radius:9px;background:rgba(255,255,255,.045);'><div style='font-size:8px;color:#64748b;'>COORD. REVISAR</div><div style='font-size:18px;font-weight:760;margin-top:2px;'>" & FORMAT(nCoordRevisar,"#,0") & "</div></div>" &
+                    "<div style='padding:10px;border-radius:9px;background:rgba(255,255,255,.045);'><div style='font-size:8px;color:#64748b;'>POT. FALTANTE</div><div style='font-size:18px;font-weight:760;margin-top:2px;'>" & FORMAT(nPotFalta,"#,0") & "</div></div>" &
+                    "<div style='padding:10px;border-radius:9px;background:rgba(255,255,255,.045);'><div style='font-size:8px;color:#64748b;'>POT. REVISAR</div><div style='font-size:18px;font-weight:760;margin-top:2px;'>" & FORMAT(nPotRevisar,"#,0") & "</div></div>" &
+                    "<div style='padding:10px;border-radius:9px;background:rgba(255,255,255,.045);'><div style='font-size:8px;color:#64748b;'>NIVEL FALTANTE</div><div style='font-size:18px;font-weight:760;margin-top:2px;'>" & FORMAT(nNivelFalta,"#,0") & "</div></div>" &
+                    "<div style='padding:10px;border-radius:9px;background:rgba(255,255,255,.045);'><div style='font-size:8px;color:#64748b;'>DUPLICADOS</div><div style='font-size:18px;font-weight:760;margin-top:2px;color:" & IF(nDuplicados=0,"#86e3d5","#ff9b84") & ";'>" & FORMAT(nDuplicados,"#,0") & "</div></div>" &
+                "</div>" &
+            "</div>" &
+        "</div>" &
+
+        "<div style='padding:10px 13px;border-radius:10px;background:rgba(42,157,143,.07);border:1px solid rgba(42,157,143,.2);margin-top:10px;font-size:9px;color:#a7c9c4;line-height:1.45;'><b style='color:#86e3d5;'>Criterio de uso:</b> los registros QA/QC permanecen trazables en PostgreSQL y se excluyen del entrenamiento del modelo predictivo. Las observaciones deben revisarse antes de exportar datos a Leapfrog, AutoCAD o Deswik.</div>" &
+        "<div style='display:flex;justify-content:space-between;margin-top:10px;font-size:8px;color:#64748b;'><span>Fuente: PostgreSQL · RAW → CORE → ANALYTICS</span><span>Panel descriptivo de control; no reemplaza la validación del geólogo responsable</span></div>" &
+    "</div>"

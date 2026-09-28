@@ -1,0 +1,58 @@
+-- Medidas principales
+Muestras = COUNTROWS(Fact_Muestras)
+
+Au mediana g t = MEDIAN(Fact_Muestras[Au_g_t])
+
+Au promedio g t = AVERAGE(Fact_Muestras[Au_g_t])
+
+Au P95 g t = PERCENTILEX.INC(Fact_Muestras, Fact_Muestras[Au_g_t], 0.95)
+
+Potencia mediana m = MEDIAN(Fact_Muestras[Potencia_m])
+
+Au por potencia ponderada =
+DIVIDE(
+    SUMX(Fact_Muestras, Fact_Muestras[Au_g_t] * Fact_Muestras[Potencia_m]),
+    SUM(Fact_Muestras[Potencia_m])
+)
+
+Muestras con XYZ duplicado =
+CALCULATE([Muestras], Fact_Muestras[DuplicadoXYZ] = "SI")
+
+Porcentaje XYZ duplicado = DIVIDE([Muestras con XYZ duplicado], [Muestras])
+
+Muestras tramo alejado =
+CALCULATE([Muestras], Fact_Muestras[TramoEspacial] = "ALEJADO")
+
+Objetivos de verificacion = COUNTROWS(Fact_Objetivos)
+
+Objetivos prioridad alta =
+CALCULATE([Objetivos de verificacion], Fact_Objetivos[Prioridad] = "ALTA")
+
+Nodos con soporte = COUNTROWS(Fact_Nodos)
+
+Nodos datos cercanos =
+CALCULATE([Nodos con soporte], Fact_Nodos[Soporte] = "DATOS_CERCANOS")
+
+Porcentaje nodos cercanos = DIVIDE([Nodos datos cercanos], [Nodos con soporte])
+
+Tramos conectados = COUNTROWS(Fact_Tramos)
+
+Longitud conectada m = SUM(Fact_Tramos[LongitudConectada_m])
+
+Longitud supera 5 g t =
+CALCULATE([Longitud conectada m], Fact_Tramos[Supera_Umbral_5_g_t] = "SI")
+
+Porcentaje longitud supera 5 g t = DIVIDE([Longitud supera 5 g t], [Longitud conectada m])
+
+RMSE IDW g t =
+MAXX(FILTER(Metricas_Validacion, Metricas_Validacion[Metodo] = "IDW_log_bloques"), Metricas_Validacion[RMSE_g_t])
+
+R2 IDW =
+MAXX(FILTER(Metricas_Validacion, Metricas_Validacion[Metodo] = "IDW_log_bloques"), Metricas_Validacion[R2])
+
+Estado predictivo = IF([R2 IDW] < 0.20, "Capacidad predictiva limitada", "Revisar desempeño")
+
+Titulo seleccion =
+"ALPACAY | " & COALESCE(SELECTEDVALUE(Dim_Labor[Labor]), "Todas las labores")
+
+Color estado predictivo = IF([R2 IDW] < 0.20, "#F2C14E", "#2FBF71")

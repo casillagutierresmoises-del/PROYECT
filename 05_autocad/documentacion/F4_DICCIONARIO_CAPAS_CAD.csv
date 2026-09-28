@@ -1,0 +1,10 @@
+Capa,Uso,ColorACI,VisibleInicial
+F4_AU_00_01,Muestras por rango visual de Au,3,SI
+F4_AU_01_05,Muestras por rango visual de Au,4,SI
+F4_AU_05_15,Muestras por rango visual de Au,2,SI
+F4_AU_15_50,Muestras por rango visual de Au,30,SI
+F4_AU_GE_50,Muestras por rango visual de Au,1,SI
+F4_QA_DUP_XYZ,Posiciones XYZ repetidas; revisar antes de interpretar,1,SI
+F4_QA_ALEJADO,Tramo alejado dentro de ALPACAY; no constituye otra zona,6,SI
+F4_EJE_LOCAL,Referencia visual del eje longitudinal,7,SI
+F4_ETIQUETAS,Código/ley/potencia; apagada para mejorar lectura,8,NO

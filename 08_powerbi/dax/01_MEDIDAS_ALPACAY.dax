@@ -1,0 +1,137 @@
+// ALPACAY - Medidas para Power BI
+// Pegar todo en Vista de consultas DAX.
+// Ejecutar y luego pulsar "Actualizar modelo con cambios".
+
+DEFINE
+    MEASURE 'CALIDAD'[Total Registros] =
+        COUNTROWS('muestras')
+
+    MEASURE 'CALIDAD'[Muestras XYZ] =
+        CALCULATE(
+            COUNTROWS('muestras'),
+            'muestras'[estado_coordenadas] = "OK"
+        )
+
+    MEASURE 'CALIDAD'[Sin Coordenadas] =
+        CALCULATE(
+            COUNTROWS('muestras'),
+            'muestras'[estado_coordenadas] = "FALTA_COORD"
+        )
+
+    MEASURE 'CALIDAD'[Coordenadas a Revisar] =
+        CALCULATE(
+            COUNTROWS('muestras'),
+            'muestras'[estado_coordenadas] = "PARCIAL_REVISAR"
+        )
+
+    MEASURE 'CALIDAD'[Cobertura Espacial] =
+        DIVIDE([Muestras XYZ], [Total Registros], 0)
+
+    MEASURE 'CALIDAD'[Au Numerico] =
+        CALCULATE(
+            COUNTROWS('muestras'),
+            'muestras'[estado_au] = "OK"
+        )
+
+    MEASURE 'CALIDAD'[Au Traza] =
+        CALCULATE(
+            COUNTROWS('muestras'),
+            'muestras'[estado_au] = "TRAZA"
+        )
+
+    MEASURE 'CALIDAD'[Au Faltante] =
+        CALCULATE(
+            COUNTROWS('muestras'),
+            'muestras'[estado_au] = "FALTA_AU"
+        )
+
+    MEASURE 'CALIDAD'[Registros QAQC] =
+        CALCULATE(
+            COUNTROWS('muestras'),
+            'muestras'[es_qaqc] = TRUE()
+        )
+
+    MEASURE 'CALIDAD'[Candidatos ML] =
+        CALCULATE(
+            COUNTROWS('muestras'),
+            'muestras'[incluir_ml] = TRUE()
+        )
+
+    MEASURE 'CALIDAD'[Tasa Candidatos ML] =
+        DIVIDE([Candidatos ML], [Total Registros], 0)
+
+    MEASURE 'CALIDAD'[Codigos Duplicados] =
+        CALCULATE(
+            COUNTROWS('muestras'),
+            'muestras'[estado_codigo] = "DUPLICADO"
+        )
+
+    MEASURE 'CALIDAD'[Potencia Faltante] =
+        CALCULATE(
+            COUNTROWS('muestras'),
+            'muestras'[estado_potencia] = "FALTA_POT"
+        )
+
+    MEASURE 'CALIDAD'[Nivel Faltante] =
+        CALCULATE(
+            COUNTROWS('muestras'),
+            'muestras'[estado_nivel] = "FALTA_NIVEL"
+        )
+
+    MEASURE 'CALIDAD'[Ley Promedio Au] =
+        CALCULATE(
+            AVERAGE('muestras'[au_gr_tm]),
+            'muestras'[es_qaqc] = FALSE(),
+            'muestras'[estado_au] = "OK"
+        )
+
+    MEASURE 'CALIDAD'[Ley Mediana Au] =
+        CALCULATE(
+            MEDIAN('muestras'[au_gr_tm]),
+            'muestras'[es_qaqc] = FALSE(),
+            'muestras'[estado_au] = "OK"
+        )
+
+    MEASURE 'CALIDAD'[Ley Maxima Au] =
+        CALCULATE(
+            MAX('muestras'[au_gr_tm]),
+            'muestras'[es_qaqc] = FALSE(),
+            'muestras'[estado_au] = "OK"
+        )
+
+    MEASURE 'CALIDAD'[Ley Minima Au] =
+        CALCULATE(
+            MIN('muestras'[au_gr_tm]),
+            'muestras'[es_qaqc] = FALSE(),
+            'muestras'[estado_au] = "OK"
+        )
+
+    MEASURE 'CALIDAD'[Potencia Promedio] =
+        CALCULATE(
+            AVERAGE('muestras'[potencia_m]),
+            'muestras'[es_qaqc] = FALSE(),
+            'muestras'[potencia_m] > 0
+        )
+
+    MEASURE 'CALIDAD'[Ley Ponderada por Potencia] =
+        VAR DatosValidos =
+            FILTER(
+                'muestras',
+                'muestras'[es_qaqc] = FALSE()
+                    && NOT ISBLANK('muestras'[au_gr_tm])
+                    && 'muestras'[potencia_m] > 0
+            )
+        RETURN
+            DIVIDE(
+                SUMX(DatosValidos, 'muestras'[au_gr_tm] * 'muestras'[potencia_m]),
+                SUMX(DatosValidos, 'muestras'[potencia_m])
+            )
+
+    MEASURE 'CALIDAD'[Total Labores] =
+        DISTINCTCOUNTNOBLANK('muestras'[labor])
+
+    MEASURE 'CALIDAD'[Ultima Fecha Muestreo] =
+        MAX('muestras'[fecha])
+
+EVALUATE
+    { 1 }

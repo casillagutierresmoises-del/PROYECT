@@ -1,0 +1,289 @@
+Dashboard HTML Completo =
+VAR nTotal = COUNTROWS('muestras')
+VAR nXYZ =
+    CALCULATE(
+        COUNTROWS('muestras'),
+        'muestras'[estado_coordenadas] = "OK"
+    )
+VAR nML =
+    CALCULATE(
+        COUNTROWS('muestras'),
+        'muestras'[incluir_ml] = TRUE()
+    )
+VAR nQAQC =
+    CALCULATE(
+        COUNTROWS('muestras'),
+        'muestras'[es_qaqc] = TRUE()
+    )
+VAR nAuOK =
+    CALCULATE(
+        COUNTROWS('muestras'),
+        'muestras'[estado_au] = "OK"
+    )
+VAR nAuTraza =
+    CALCULATE(
+        COUNTROWS('muestras'),
+        'muestras'[estado_au] = "TRAZA"
+    )
+VAR nSinCoord =
+    CALCULATE(
+        COUNTROWS('muestras'),
+        'muestras'[estado_coordenadas] = "FALTA_COORD"
+    )
+VAR nCoordRevisar =
+    CALCULATE(
+        COUNTROWS('muestras'),
+        'muestras'[estado_coordenadas] = "PARCIAL_REVISAR"
+    )
+VAR nDuplicados =
+    CALCULATE(
+        COUNTROWS('muestras'),
+        'muestras'[estado_codigo] = "DUPLICADO"
+    )
+VAR nPotFaltante =
+    CALCULATE(
+        COUNTROWS('muestras'),
+        'muestras'[estado_potencia] = "FALTA_POT"
+    )
+VAR nPromedio =
+    CALCULATE(
+        AVERAGE('muestras'[au_gr_tm]),
+        'muestras'[es_qaqc] = FALSE(),
+        'muestras'[estado_au] = "OK"
+    )
+VAR nMediana =
+    CALCULATE(
+        MEDIAN('muestras'[au_gr_tm]),
+        'muestras'[es_qaqc] = FALSE(),
+        'muestras'[estado_au] = "OK"
+    )
+VAR nPotencia =
+    CALCULATE(
+        AVERAGE('muestras'[potencia_m]),
+        'muestras'[es_qaqc] = FALSE(),
+        'muestras'[potencia_m] > 0
+    )
+VAR nLeyPonderada =
+    VAR tValidos =
+        FILTER(
+            'muestras',
+            'muestras'[es_qaqc] = FALSE()
+                && NOT ISBLANK('muestras'[au_gr_tm])
+                && 'muestras'[potencia_m] > 0
+        )
+    RETURN
+        DIVIDE(
+            SUMX(tValidos, 'muestras'[au_gr_tm] * 'muestras'[potencia_m]),
+            SUMX(tValidos, 'muestras'[potencia_m])
+        )
+VAR dFecha = MAX('muestras'[fecha])
+VAR pXYZ = DIVIDE(nXYZ, nTotal, 0)
+VAR pML = DIVIDE(nML, nTotal, 0)
+VAR pAuOK = DIVIDE(nAuOK, nTotal, 0)
+VAR sVeta = SELECTEDVALUE('muestras'[veta], "Todas las vetas")
+VAR sLabor = SELECTEDVALUE('muestras'[labor], "Todas las labores")
+VAR sContexto = sVeta & "  •  " & sLabor
+
+VAR tLaboresBase =
+    FILTER(
+        ADDCOLUMNS(
+            FILTER(
+                VALUES('muestras'[labor]),
+                NOT ISBLANK('muestras'[labor])
+            ),
+            "__Au",
+                CALCULATE(
+                    AVERAGE('muestras'[au_gr_tm]),
+                    'muestras'[es_qaqc] = FALSE(),
+                    'muestras'[estado_au] = "OK"
+                ),
+            "__N",
+                CALCULATE(
+                    COUNTROWS('muestras'),
+                    'muestras'[es_qaqc] = FALSE(),
+                    'muestras'[estado_au] = "OK"
+                )
+        ),
+        [__N] > 0 && NOT ISBLANK([__Au])
+    )
+VAR tLaboresTop =
+    TOPN(
+        6,
+        tLaboresBase,
+        [__Au], DESC,
+        'muestras'[labor], ASC
+    )
+VAR nLaborMax = MAXX(tLaboresTop, [__Au])
+VAR hLabores =
+    CONCATENATEX(
+        tLaboresTop,
+        VAR xAu = [__Au]
+        VAR xN = [__N]
+        VAR xLabor = LEFT('muestras'[labor], 21)
+        VAR xAncho = FORMAT(DIVIDE(xAu, nLaborMax, 0), "0%")
+        VAR xColor =
+            SWITCH(
+                TRUE(),
+                xAu >= 10, "#e76f51",
+                xAu >= 5, "#d4a72c",
+                xAu >= 1, "#2a9d8f",
+                "#64748b"
+            )
+        RETURN
+            "<div style='display:grid;grid-template-columns:112px 1fr 68px;gap:8px;align-items:center;margin:8px 0;'>" &
+                "<div style='font-size:11px;color:#cbd5e1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;' title='" & 'muestras'[labor] & "'>" & xLabor & "</div>" &
+                "<div style='height:9px;background:#26344a;border-radius:8px;overflow:hidden;'>" &
+                    "<div style='height:100%;width:" & xAncho & ";background:" & xColor & ";border-radius:8px;'></div>" &
+                "</div>" &
+                "<div style='text-align:right;font-size:11px;font-weight:700;color:#f8fafc;'>" & FORMAT(xAu, "0.00") & " <span style='font-size:9px;color:#94a3b8;'>g/t</span><div style='font-size:8px;font-weight:400;color:#64748b;'>n=" & FORMAT(xN, "#,0") & "</div></div>" &
+            "</div>",
+        "",
+        [__Au], DESC
+    )
+VAR hLaboresFinal =
+    IF(
+        COUNTROWS(tLaboresTop) = 0,
+        "<div style='padding:44px 0;text-align:center;color:#64748b;font-size:11px;'>Sin labores con Au válido para el filtro actual</div>",
+        hLabores
+    )
+
+VAR tRangosBase =
+    FILTER(
+        ADDCOLUMNS(
+            VALUES('muestras'[rango_au_descriptivo]),
+            "__Cantidad", CALCULATE(COUNTROWS('muestras'), 'muestras'[es_qaqc] = FALSE()),
+            "__Orden",
+                SWITCH(
+                    'muestras'[rango_au_descriptivo],
+                    "MENOR_1", 1,
+                    "1_A_5", 2,
+                    "5_A_10", 3,
+                    "10_A_30", 4,
+                    "MAYOR_IGUAL_30", 5,
+                    6
+                )
+        ),
+        NOT ISBLANK('muestras'[rango_au_descriptivo]) && [__Cantidad] > 0
+    )
+VAR nRangoMax = MAXX(tRangosBase, [__Cantidad])
+VAR hRangos =
+    CONCATENATEX(
+        tRangosBase,
+        VAR xRango = 'muestras'[rango_au_descriptivo]
+        VAR xCantidad = [__Cantidad]
+        VAR xEtiqueta =
+            SWITCH(
+                xRango,
+                "MENOR_1", "< 1",
+                "1_A_5", "1 – 5",
+                "5_A_10", "5 – 10",
+                "10_A_30", "10 – 30",
+                "MAYOR_IGUAL_30", "≥ 30",
+                "Sin dato"
+            )
+        VAR xColor =
+            SWITCH(
+                xRango,
+                "MENOR_1", "#64748b",
+                "1_A_5", "#2a9d8f",
+                "5_A_10", "#d4a72c",
+                "10_A_30", "#f59e0b",
+                "MAYOR_IGUAL_30", "#e76f51",
+                "#475569"
+            )
+        VAR xAlto = 18 + ROUND(64 * DIVIDE(xCantidad, nRangoMax, 0), 0)
+        RETURN
+            "<div style='flex:1;min-width:42px;text-align:center;display:flex;flex-direction:column;justify-content:flex-end;'>" &
+                "<div style='font-size:10px;font-weight:700;color:#e2e8f0;margin-bottom:5px;'>" & FORMAT(xCantidad, "#,0") & "</div>" &
+                "<div style='height:" & FORMAT(xAlto, "0") & "px;background:" & xColor & ";border-radius:7px 7px 2px 2px;opacity:.92;'></div>" &
+                "<div style='font-size:9px;color:#94a3b8;margin-top:6px;white-space:nowrap;'>" & xEtiqueta & "</div>" &
+            "</div>",
+        "",
+        [__Orden], ASC
+    )
+VAR hRangosFinal =
+    IF(
+        COUNTROWS(tRangosBase) = 0,
+        "<div style='padding:44px 0;text-align:center;color:#64748b;font-size:11px;'>Sin datos para el filtro actual</div>",
+        hRangos
+    )
+
+VAR sEstadoCoord =
+    IF(pXYZ >= 0.8, "BUENA", IF(pXYZ >= 0.5, "MEDIA", "LIMITADA"))
+VAR cEstadoCoord =
+    IF(pXYZ >= 0.8, "#2a9d8f", IF(pXYZ >= 0.5, "#d4a72c", "#e76f51"))
+VAR sEstadoDup = IF(nDuplicados = 0, "SIN DUPLICADOS", "REVISAR")
+VAR cEstadoDup = IF(nDuplicados = 0, "#2a9d8f", "#e76f51")
+VAR sFecha = IF(ISBLANK(dFecha), "Sin fecha", FORMAT(dFecha, "dd/MM/yyyy"))
+
+RETURN
+    "<div style='box-sizing:border-box;width:100%;min-height:760px;padding:22px;border-radius:18px;background:linear-gradient(145deg,#0b1220 0%,#111c2e 54%,#172a40 100%);font-family:Segoe UI,Arial,sans-serif;color:#f8fafc;overflow:hidden;'>" &
+        "<div style='display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid rgba(255,255,255,.12);padding-bottom:14px;'>" &
+            "<div>" &
+                "<div style='font-size:10px;font-weight:800;letter-spacing:2.4px;color:#d4a72c;'>MINERÍA 4.0 · INTELIGENCIA DE DATOS</div>" &
+                "<div style='font-size:25px;font-weight:760;line-height:1.15;margin-top:5px;'>ALPACAY</div>" &
+                "<div style='font-size:12px;color:#9fb0c5;margin-top:5px;'>Control integrado de muestreo, leyes de Au y preparación analítica</div>" &
+            "</div>" &
+            "<div style='text-align:right;'>" &
+                "<div style='display:inline-block;padding:6px 11px;border-radius:999px;background:rgba(42,157,143,.15);border:1px solid rgba(42,157,143,.65);color:#86e3d5;font-size:10px;font-weight:800;'>POSTGRESQL ACTIVO</div>" &
+                "<div style='font-size:10px;color:#94a3b8;margin-top:8px;'>Última muestra: " & sFecha & "</div>" &
+                "<div style='font-size:9px;color:#64748b;margin-top:3px;'>" & sContexto & "</div>" &
+            "</div>" &
+        "</div>" &
+
+        "<div style='display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px;'>" &
+            "<div style='padding:13px 14px;border-radius:12px;background:rgba(255,255,255,.065);border:1px solid rgba(255,255,255,.09);'>" &
+                "<div style='font-size:9px;color:#94a3b8;letter-spacing:.7px;'>REGISTROS</div><div style='font-size:25px;font-weight:760;margin-top:3px;'>" & FORMAT(nTotal, "#,0") & "</div><div style='font-size:9px;color:#64748b;margin-top:4px;'>Contexto seleccionado</div>" &
+            "</div>" &
+            "<div style='padding:13px 14px;border-radius:12px;background:rgba(42,157,143,.09);border:1px solid rgba(42,157,143,.32);'>" &
+                "<div style='font-size:9px;color:#86e3d5;letter-spacing:.7px;'>COBERTURA XYZ</div><div style='font-size:25px;font-weight:760;margin-top:3px;'>" & FORMAT(pXYZ, "0.0%") & "</div><div style='font-size:9px;color:#7dd3c7;margin-top:4px;'>" & FORMAT(nXYZ, "#,0") & " muestras completas</div>" &
+            "</div>" &
+            "<div style='padding:13px 14px;border-radius:12px;background:rgba(212,167,44,.11);border:1px solid rgba(212,167,44,.38);'>" &
+                "<div style='font-size:9px;color:#e8cd75;letter-spacing:.7px;'>CANDIDATOS ML</div><div style='font-size:25px;font-weight:760;margin-top:3px;color:#f5d76e;'>" & FORMAT(nML, "#,0") & "</div><div style='font-size:9px;color:#d8bd67;margin-top:4px;'>" & FORMAT(pML, "0.0%") & " del total filtrado</div>" &
+            "</div>" &
+            "<div style='padding:13px 14px;border-radius:12px;background:rgba(255,255,255,.065);border:1px solid rgba(255,255,255,.09);'>" &
+                "<div style='font-size:9px;color:#94a3b8;letter-spacing:.7px;'>REGISTROS QA/QC</div><div style='font-size:25px;font-weight:760;margin-top:3px;'>" & FORMAT(nQAQC, "#,0") & "</div><div style='font-size:9px;color:#64748b;margin-top:4px;'>Excluidos del modelo ML</div>" &
+            "</div>" &
+        "</div>" &
+
+        "<div style='display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px;'>" &
+            "<div style='padding:10px 13px;border-radius:10px;background:#f8fafc;color:#172033;'><div style='font-size:9px;font-weight:700;color:#64748b;'>LEY PROMEDIO</div><div style='font-size:20px;font-weight:760;margin-top:2px;'>" & FORMAT(nPromedio, "0.00") & " <span style='font-size:9px;color:#64748b;'>g/t</span></div></div>" &
+            "<div style='padding:10px 13px;border-radius:10px;background:#f8fafc;color:#172033;'><div style='font-size:9px;font-weight:700;color:#64748b;'>LEY MEDIANA</div><div style='font-size:20px;font-weight:760;margin-top:2px;'>" & FORMAT(nMediana, "0.00") & " <span style='font-size:9px;color:#64748b;'>g/t</span></div></div>" &
+            "<div style='padding:10px 13px;border-radius:10px;background:#f8fafc;color:#172033;'><div style='font-size:9px;font-weight:700;color:#64748b;'>LEY PONDERADA</div><div style='font-size:20px;font-weight:760;margin-top:2px;'>" & FORMAT(nLeyPonderada, "0.00") & " <span style='font-size:9px;color:#64748b;'>g/t</span></div></div>" &
+            "<div style='padding:10px 13px;border-radius:10px;background:#f8fafc;color:#172033;'><div style='font-size:9px;font-weight:700;color:#64748b;'>POTENCIA MEDIA</div><div style='font-size:20px;font-weight:760;margin-top:2px;'>" & FORMAT(nPotencia, "0.00") & " <span style='font-size:9px;color:#64748b;'>m</span></div></div>" &
+        "</div>" &
+
+        "<div style='display:grid;grid-template-columns:1.25fr .9fr .85fr;gap:10px;margin-top:10px;'>" &
+            "<div style='padding:14px;border-radius:12px;background:rgba(8,15,28,.58);border:1px solid rgba(255,255,255,.08);min-height:235px;'>" &
+                "<div style='display:flex;justify-content:space-between;align-items:center;'><div><div style='font-size:12px;font-weight:750;'>Top labores por ley media</div><div style='font-size:9px;color:#64748b;margin-top:2px;'>Au válido · sin QA/QC · máximo seis labores</div></div><div style='font-size:9px;color:#d4a72c;'>g/t Au</div></div>" &
+                "<div style='margin-top:12px;'>" & hLaboresFinal & "</div>" &
+            "</div>" &
+            "<div style='padding:14px;border-radius:12px;background:rgba(8,15,28,.58);border:1px solid rgba(255,255,255,.08);min-height:235px;'>" &
+                "<div style='font-size:12px;font-weight:750;'>Distribución de leyes</div><div style='font-size:9px;color:#64748b;margin-top:2px;'>Rangos descriptivos de Au (g/t)</div>" &
+                "<div style='height:150px;display:flex;align-items:flex-end;gap:7px;margin-top:15px;padding:0 3px;border-bottom:1px solid #334155;'>" & hRangosFinal & "</div>" &
+            "</div>" &
+            "<div style='padding:14px;border-radius:12px;background:rgba(8,15,28,.58);border:1px solid rgba(255,255,255,.08);min-height:235px;'>" &
+                "<div style='font-size:12px;font-weight:750;'>Control de calidad</div><div style='font-size:9px;color:#64748b;margin-top:2px;'>Alertas del contexto filtrado</div>" &
+                "<div style='margin-top:14px;'>" &
+                    "<div style='padding:9px 10px;border-radius:9px;background:rgba(255,255,255,.045);margin-bottom:7px;'><div style='display:flex;justify-content:space-between;'><span style='font-size:10px;color:#cbd5e1;'>Cobertura espacial</span><span style='font-size:9px;font-weight:800;color:" & cEstadoCoord & ";'>" & sEstadoCoord & "</span></div><div style='height:4px;background:#26344a;border-radius:5px;margin-top:7px;overflow:hidden;'><div style='height:100%;width:" & FORMAT(pXYZ, "0%") & ";background:" & cEstadoCoord & ";'></div></div></div>" &
+                    "<div style='display:grid;grid-template-columns:1fr 1fr;gap:7px;'>" &
+                        "<div style='padding:9px;border-radius:9px;background:rgba(255,255,255,.045);'><div style='font-size:8px;color:#64748b;'>SIN COORD.</div><div style='font-size:17px;font-weight:750;margin-top:2px;'>" & FORMAT(nSinCoord, "#,0") & "</div></div>" &
+                        "<div style='padding:9px;border-radius:9px;background:rgba(255,255,255,.045);'><div style='font-size:8px;color:#64748b;'>COORD. REVISAR</div><div style='font-size:17px;font-weight:750;margin-top:2px;'>" & FORMAT(nCoordRevisar, "#,0") & "</div></div>" &
+                        "<div style='padding:9px;border-radius:9px;background:rgba(255,255,255,.045);'><div style='font-size:8px;color:#64748b;'>Au TRAZA</div><div style='font-size:17px;font-weight:750;margin-top:2px;'>" & FORMAT(nAuTraza, "#,0") & "</div></div>" &
+                        "<div style='padding:9px;border-radius:9px;background:rgba(255,255,255,.045);'><div style='font-size:8px;color:#64748b;'>POT. FALTANTE</div><div style='font-size:17px;font-weight:750;margin-top:2px;'>" & FORMAT(nPotFaltante, "#,0") & "</div></div>" &
+                    "</div>" &
+                    "<div style='display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:9px;background:rgba(255,255,255,.045);margin-top:7px;'><span style='font-size:9px;color:#94a3b8;'>Códigos duplicados</span><span style='font-size:9px;font-weight:800;color:" & cEstadoDup & ";'>" & FORMAT(nDuplicados, "#,0") & " · " & sEstadoDup & "</span></div>" &
+                "</div>" &
+            "</div>" &
+        "</div>" &
+
+        "<div style='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;'>" &
+            "<div style='padding:10px 13px;border-radius:10px;background:rgba(42,157,143,.08);border:1px solid rgba(42,157,143,.22);'><div style='display:flex;justify-content:space-between;align-items:center;'><span style='font-size:9px;color:#86e3d5;font-weight:700;'>INTEGRIDAD ANALÍTICA DE Au</span><span style='font-size:11px;font-weight:800;color:#86e3d5;'>" & FORMAT(pAuOK, "0.0%") & "</span></div><div style='height:4px;background:#26344a;border-radius:5px;margin-top:7px;overflow:hidden;'><div style='height:100%;width:" & FORMAT(pAuOK, "0%") & ";background:#2a9d8f;'></div></div></div>" &
+            "<div style='padding:10px 13px;border-radius:10px;background:rgba(212,167,44,.08);border:1px solid rgba(212,167,44,.22);'><div style='display:flex;justify-content:space-between;align-items:center;'><span style='font-size:9px;color:#e8cd75;font-weight:700;'>ELEGIBILIDAD PARA MACHINE LEARNING</span><span style='font-size:11px;font-weight:800;color:#e8cd75;'>" & FORMAT(pML, "0.0%") & "</span></div><div style='height:4px;background:#26344a;border-radius:5px;margin-top:7px;overflow:hidden;'><div style='height:100%;width:" & FORMAT(pML, "0%") & ";background:#d4a72c;'></div></div></div>" &
+        "</div>" &
+
+        "<div style='display:flex;justify-content:space-between;align-items:center;margin-top:11px;font-size:8px;color:#64748b;'>" &
+            "<span>Fuente: PostgreSQL · Modelo analítico ALPACAY · Actualización mediante Power BI</span>" &
+            "<span>Resultados descriptivos; no constituyen estimación de recursos ni reservas</span>" &
+        "</div>" &
+    "</div>"
